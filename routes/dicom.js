@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const uploadFile = require("../services/upload.service");
+const DicomService = require('../services/dicom.service');
 
 /* Upload DICOM file */
 router.post("/", async function (req, res, next) {
@@ -23,12 +24,14 @@ router.post("/", async function (req, res, next) {
 
 /* GET header attribute by filename and tag */
 router.get("/:fileName/attribute", function (req, res, next) {
-    res.send("tag: " + req.query.tag);
+    const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
+    const attribute = DicomService.getAttributeByTag(dicomAsBuffer, req.query.tag);
+    res.status(200).send(attribute);
 });
 
 /* GET PNG image by file name */
 router.get("/:fileName/image", function (req, res, next) {
-    res.send("Here's your image");
+    res.status(200).send("Here's your image");
 });
 
 module.exports = router;
