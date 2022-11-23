@@ -22,3 +22,11 @@ A simple DICOM microservice for storing an uploaded DICOM file to local filesyst
 
 - Start the server: `npm run start`
 - For server API integration testing the default url is http://localhost:3000
+
+
+### Usage Guide
+
+- To upload a file POST `http://localhost:3000/dicom`
+
+- To search for a header attribute GET `http://localhost:3000/dicom/{fileName}/attribute?tag=xGGGGEEEE`
+where G = group number and E = element number
