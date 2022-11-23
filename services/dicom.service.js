@@ -84,7 +84,6 @@ class DicomService {
             });
 
             png.data = rgbaPixels;
-
             return png.pack();
 
         } catch (ex) {
