@@ -1,69 +1,86 @@
-var dicomParser = require("dicom-parser");
-var Rusha = require("rusha");
+const dicomParser = require("dicom-parser");
+const fs = require("fs");
+const dcmjsImaging = require("dcmjs-imaging");
+const { DicomImage } = dcmjsImaging;
+PNG = require("pngjs").PNG;
 
+/**
+ * Service class with static util methods for manipulating DICOM files
+ */
 class DicomService {
 
-    // Function to calculate the SHA1 Hash for a buffer with a given offset and length
-    static sha1(buffer, offset, length) {
-        offset = offset || 0;
-        length = length || buffer.length;
-        var subArray = dicomParser.sharedCopy(buffer, offset, length);
-        var rusha = new Rusha();
-        return rusha.digest(subArray);
-    }
-
-    // Read the DICOM P10 file from disk into a Buffer and return it
+    /**
+     * Read the DICOM P10 file from disk into a Buffer and return it
+     * @param {string} [fileName] - Name of the DICOM file
+     * @returns {Buffer|undefined} Contents of the specified file or undefined if fileName doesn't exist.
+     */
     static getDicomFileAsBuffer(fileName) {
-        const fs = require('fs');
+        if (!fileName) {
+            return undefined;
+        }
         const filePath = `resources/uploads/${fileName}`;
-        console.log('File Path = ', filePath);
         return fs.readFileSync(filePath);
     }
 
-    static parseDicom(dicomFileAsBuffer) {
-        // Parse the dicom file
-        try {
-        var dataSet = dicomParser.parseDicom(dicomFileAsBuffer);
-    
-        // print the patient's name
-        var patientName = dataSet.string('x00100020');
-        console.log('Patient Name = '+ patientName);
-    
-        // Get the pixel data element and calculate the SHA1 hash for its data
-        var pixelData = dataSet.elements.x7fe00010;
-        var pixelDataBuffer = dicomParser.sharedCopy(dicomFileAsBuffer, pixelData.dataOffset, pixelData.length);
-        console.log('Pixel Data length = ', pixelDataBuffer.length);
-        console.log("Pixel Data SHA1 hash = ", this.sha1(pixelDataBuffer));
-    
-    
-        if(pixelData.encapsulatedPixelData) {
-            var imageFrame = dicomParser.readEncapsulatedPixelData(dataSet, pixelData, 0);
-            console.log('Old Image Frame length = ', imageFrame.length);
-            console.log('Old Image Frame SHA1 hash = ', this.sha1(imageFrame));
-    
-            if(pixelData.basicOffsetTable.length) {
-            var imageFrame = dicomParser.readEncapsulatedImageFrame(dataSet, pixelData, 0);
-            console.log('Image Frame length = ', imageFrame.length);
-            console.log('Image Frame SHA1 hash = ', this.sha1(imageFrame));
-            } else {
-            var imageFrame = dicomParser.readEncapsulatedPixelDataFromFragments(dataSet, pixelData, 0, pixelData.fragments.length);
-            console.log('Image Frame length = ', imageFrame.length);
-            console.log('Image Frame SHA1 hash = ', this.sha1(imageFrame));
-            }
-        }
-    
-        }
-        catch(ex) {
-        console.log(ex);
-        }
-    }
-
+    /**
+     * Extracts and returns a header attribute from a given DICOM file and tag
+     * @param {string} [fileName] - Name of the DICOM file
+     * @param {string} [fileName] - DICOM tag in xGGGGEEEE format (where G = group number, E = element number)
+     * @returns {string|undefined} The corresponding header attribute value or undefined
+     */
     static getAttributeByTag(dicomFileAsBuffer, tag) {
+        if (!dicomFileAsBuffer || !tag) {
+            return undefined;
+        }
         try {
             var dataSet = dicomParser.parseDicom(dicomFileAsBuffer);
             return dataSet.string(tag);
+        } catch (ex) {
+            console.log(ex);
         }
-        catch(ex) {
+    }
+
+    static async getImage(dicomFileAsBuffer) {
+        try {
+            const toArrayBuffer = (buf) => {
+                const ab = new ArrayBuffer(buf.length);
+                const view = new Uint8Array(ab);
+                for (let i = 0; i < buf.length; ++i) {
+                    view[i] = buf[i];
+                }
+                return ab;
+            };
+
+            const arrBuffer = toArrayBuffer(dicomFileAsBuffer);
+
+            const image = new DicomImage(arrBuffer);
+
+            // Render image.
+            const renderingResult = image.render();
+
+            // // Rendered pixels in an RGBA ArrayBuffer.
+            const renderedPixels = Buffer.from(renderingResult.pixels);
+
+            const argbPixels = Buffer.alloc( 4 * image.getWidth() * image.getHeight());
+            for (let i = 0; i < 4 * image.getWidth() * image.getHeight(); i += 4) {
+                argbPixels[i] = renderedPixels[i + 3];
+                argbPixels[i + 1] = renderedPixels[i + 2];
+                argbPixels[i + 2] = renderedPixels[i + 1];
+                argbPixels[i + 3] = renderedPixels[i];
+            }
+
+            let png = new PNG({
+                width: image.getWidth(),
+                height: image.getHeight(),
+                bitDepth: 8,
+                colorType: 6,
+                inputColorType: 6,
+                inputHasAlpha: true,
+            });
+
+            png.data = argbPixels;
+            return png.pack();
+        } catch (ex) {
             console.log(ex);
         }
     }

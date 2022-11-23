@@ -22,16 +22,31 @@ router.post("/", async function (req, res, next) {
     }
 });
 
-/* GET header attribute by filename and tag */
+/* Fetch header attribute by tag from specified file  */
 router.get("/:fileName/attribute", function (req, res, next) {
-    const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
-    const attribute = DicomService.getAttributeByTag(dicomAsBuffer, req.query.tag);
-    res.status(200).send(attribute);
+    try {
+        const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
+        const attribute = DicomService.getAttributeByTag(dicomAsBuffer, req.query.tag);
+        res.status(200).send(attribute);
+    } catch (err) {
+        res.status(404).send({
+            message: `File not found: ${req.params.fileName}. Please provide a valid filename.`,
+        });
+    }
 });
 
 /* GET PNG image by file name */
-router.get("/:fileName/image", function (req, res, next) {
-    res.status(200).send("Here's your image");
+router.get("/:fileName/image", async function (req, res, next) {
+    try {
+        const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
+        const png = await DicomService.getImage(dicomAsBuffer);
+        res.writeHead(200, { 'Content-Type': 'image/png' });
+        png.pipe(res);
+    } catch (err) {
+        res.status(404).send({
+            message: `File not found: ${req.params.fileName}. Please provide a valid filename.`,
+        });
+    }
 });
 
 module.exports = router;
