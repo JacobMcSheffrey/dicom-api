@@ -36,7 +36,11 @@ router.get("/:fileName/attribute", function (req, res, next) {
     }
 });
 
-/* Create and return PNG image from specified DICOM file */
+/**
+ * NOT currently working, image buffer encoding needs to be worked out
+ * 
+ * Create and return PNG image from specified DICOM file
+ */
 router.get("/:fileName/image", async function (req, res, next) {
     try {
         const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
