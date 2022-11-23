@@ -15,16 +15,20 @@ class DicomService {
      * @returns {Buffer|undefined} Contents of the specified file or undefined if fileName doesn't exist.
      */
     static getDicomFileAsBuffer(fileName) {
-        if (!fileName) {
-            return undefined;
+        try {
+            if (!fileName) {
+                return undefined;
+            }
+            const filePath = `resources/uploads/${fileName}`;
+            return fs.readFileSync(filePath);
+        } catch(ex) {
+            console.log(ex);
         }
-        const filePath = `resources/uploads/${fileName}`;
-        return fs.readFileSync(filePath);
     }
 
     /**
      * Extracts and returns a header attribute from a given DICOM file and tag
-     * @param {string} [dicomFileAsBuffer] - DICOM file contents
+     * @param {Buffer} [dicomFileAsBuffer] - DICOM file contents
      * @param {string} [tag] - DICOM tag in xGGGGEEEE format (where G = group number, E = element number)
      * @returns {string|undefined} The corresponding header attribute value or undefined
      */
@@ -42,7 +46,7 @@ class DicomService {
 
     /**
      * Extracts and converts raw pixel data to PNG image format
-     * @param {string} [dicomFileAsBuffer] - DICOM file contents
+     * @param {Buffer} [dicomFileAsBuffer] - DICOM file contents
      * @returns {PNG|undefined} PNG object
      */
     static async createPNG(dicomFileAsBuffer) {
