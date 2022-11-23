@@ -24,8 +24,8 @@ class DicomService {
 
     /**
      * Extracts and returns a header attribute from a given DICOM file and tag
-     * @param {string} [fileName] - Name of the DICOM file
-     * @param {string} [fileName] - DICOM tag in xGGGGEEEE format (where G = group number, E = element number)
+     * @param {string} [dicomFileAsBuffer] - DICOM file contents
+     * @param {string} [tag] - DICOM tag in xGGGGEEEE format (where G = group number, E = element number)
      * @returns {string|undefined} The corresponding header attribute value or undefined
      */
     static getAttributeByTag(dicomFileAsBuffer, tag) {
@@ -40,7 +40,12 @@ class DicomService {
         }
     }
 
-    static async getImage(dicomFileAsBuffer) {
+    /**
+     * Extracts and converts raw pixel data to PNG image format
+     * @param {string} [dicomFileAsBuffer] - DICOM file contents
+     * @returns {PNG|undefined} PNG object
+     */
+    static async createPNG(dicomFileAsBuffer) {
         try {
             const toArrayBuffer = (buf) => {
                 const ab = new ArrayBuffer(buf.length);
@@ -51,22 +56,18 @@ class DicomService {
                 return ab;
             };
 
-            const arrBuffer = toArrayBuffer(dicomFileAsBuffer);
+            const image = new DicomImage(toArrayBuffer(dicomFileAsBuffer));
 
-            const image = new DicomImage(arrBuffer);
+            // Rendered pixels in an RGBA ArrayBuffer.
+            const renderedPixels = Buffer.from(image.render().pixels);
 
-            // Render image.
-            const renderingResult = image.render();
+            const rgbaPixels = Buffer.alloc( 4 * image.getWidth() * image.getHeight());
 
-            // // Rendered pixels in an RGBA ArrayBuffer.
-            const renderedPixels = Buffer.from(renderingResult.pixels);
-
-            const argbPixels = Buffer.alloc( 4 * image.getWidth() * image.getHeight());
             for (let i = 0; i < 4 * image.getWidth() * image.getHeight(); i += 4) {
-                argbPixels[i] = renderedPixels[i + 3];
-                argbPixels[i + 1] = renderedPixels[i + 2];
-                argbPixels[i + 2] = renderedPixels[i + 1];
-                argbPixels[i + 3] = renderedPixels[i];
+                rgbaPixels[i] = renderedPixels[i + 3];
+                rgbaPixels[i + 1] = renderedPixels[i + 2];
+                rgbaPixels[i + 2] = renderedPixels[i + 1];
+                rgbaPixels[i + 3] = renderedPixels[i];
             }
 
             let png = new PNG({
@@ -78,8 +79,10 @@ class DicomService {
                 inputHasAlpha: true,
             });
 
-            png.data = argbPixels;
+            png.data = rgbaPixels;
+
             return png.pack();
+
         } catch (ex) {
             console.log(ex);
         }

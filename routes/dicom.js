@@ -7,11 +7,9 @@ const DicomService = require('../services/dicom.service');
 router.post("/", async function (req, res, next) {
     try {
         await uploadFile(req, res);
-
         if (req.file == undefined) {
             return res.status(400).send({ message: "Please upload a file!" });
         }
-
         res.status(200).send({
             message: "Uploaded the file successfully: " + req.file.originalname,
         });
@@ -25,12 +23,15 @@ router.post("/", async function (req, res, next) {
 /* Fetch header attribute by tag from specified file  */
 router.get("/:fileName/attribute", function (req, res, next) {
     try {
+        if (!req.query.tag) {
+            return res.status(400).send({ message: "Please provide a tag" });
+        }
         const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
         const attribute = DicomService.getAttributeByTag(dicomAsBuffer, req.query.tag);
         res.status(200).send(attribute);
     } catch (err) {
         res.status(404).send({
-            message: `File not found: ${req.params.fileName}. Please provide a valid filename.`,
+            message: `File not found: ${req.params.fileName}. Please provide a valid file name.`,
         });
     }
 });
@@ -39,12 +40,13 @@ router.get("/:fileName/attribute", function (req, res, next) {
 router.get("/:fileName/image", async function (req, res, next) {
     try {
         const dicomAsBuffer = DicomService.getDicomFileAsBuffer(req.params.fileName);
-        const png = await DicomService.getImage(dicomAsBuffer);
+        const png = await DicomService.createPNG(dicomAsBuffer);
         res.writeHead(200, { 'Content-Type': 'image/png' });
         png.pipe(res);
+
     } catch (err) {
-        res.status(404).send({
-            message: `File not found: ${req.params.fileName}. Please provide a valid filename.`,
+        res.status(500).send({
+            message: `Could not convert file to PNG format`,
         });
     }
 });
